@@ -2,6 +2,9 @@ Cascading Change Log
 
 1.2-WIP
 
+  Changed c.f.FlowStepJob to lazily create the Hadoop job JobConf when c.f.Flow#start() is called so that
+  previous Flow instances in a c.c.Cascade can influence the pending Flow instances properties.
+
   Fixed bug where c.t.MultiSourceTap#pathExists would return true if one of the child paths was missing.
 
   Changed c.c.CascadeConnector to fail if it detects cycles in the set of given c.f.Flow instances to manage.

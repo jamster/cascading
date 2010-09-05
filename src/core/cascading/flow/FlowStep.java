@@ -65,7 +65,7 @@ import org.jgrapht.graph.SimpleDirectedGraph;
  * Class FlowStep is an internal representation of a given Job to be executed on a remote cluster. During
  * planning, pipe assemblies are broken down into "steps" and encapsulated in this class.
  * <p/>
- * FlowSteps are submited in order of dependency. If two or more steps do not share the same dependencies and all
+ * FlowSteps are submitted in order of dependency. If two or more steps do not share the same dependencies and all
  * can be scheduled simultaneously, the {@link #getSubmitPriority()} value determines the order in which
  * all steps will be submitted for execution.
  * <p/>
@@ -572,9 +572,23 @@ public class FlowStep implements Serializable
     return buffer.toString();
     }
 
-  protected FlowStepJob createFlowStepJob( JobConf parentConf ) throws IOException
+  protected FlowStepJob createFlowStepJob( final JobConf parentConf ) throws IOException
     {
-    return new FlowStepJob( this, getName(), getJobConf( parentConf ) );
+    return new FlowStepJob( this, getName(), new FlowStepJob.LazyConf()
+    {
+    @Override
+    public JobConf getJobConf()
+      {
+      try
+        {
+        return FlowStep.this.getJobConf( parentConf );
+        }
+      catch( IOException exception )
+        {
+        throw new FlowException( "unable to create job conf" );
+        }
+      }
+    } );
     }
 
   protected final boolean isInfoEnabled()

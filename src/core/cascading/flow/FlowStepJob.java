@@ -40,6 +40,8 @@ public class FlowStepJob implements Callable<Throwable>
   {
   /** Field stepName */
   private final String stepName;
+  /** Field lazyConf */
+  private LazyConf lazyConf;
   /** Field currentConf */
   private JobConf currentConf;
   /** Field jobClient */
@@ -63,15 +65,16 @@ public class FlowStepJob implements Callable<Throwable>
   /** Field throwable */
   protected Throwable throwable;
 
-  public FlowStepJob( final FlowStep flowStep, String stepName, JobConf currentConf )
+  static interface LazyConf
+    {
+    JobConf getJobConf();
+    }
+
+  public FlowStepJob( final FlowStep flowStep, String stepName, LazyConf lazyConf )
     {
     this.flowStep = flowStep;
     this.stepName = stepName;
-    this.currentConf = currentConf;
-    this.pollingInterval = Flow.getJobPollingInterval( currentConf );
-
-    if( flowStep.isDebugEnabled() )
-      flowStep.logDebug( "using polling interval: " + pollingInterval );
+    this.lazyConf = lazyConf;
 
     stepStats = new HadoopStepStats( stepName )
     {
@@ -94,6 +97,22 @@ public class FlowStepJob implements Callable<Throwable>
       return runningJob;
       }
     };
+    }
+
+  public JobConf getCurrentConf()
+    {
+    if( currentConf == null )
+      currentConf = lazyConf.getJobConf();
+
+    return currentConf;
+    }
+
+  private void initPollingInterval()
+    {
+    this.pollingInterval = Flow.getJobPollingInterval( getCurrentConf() );
+
+    if( flowStep.isDebugEnabled() )
+      flowStep.logDebug( "using polling interval: " + pollingInterval );
     }
 
   public void stop()
@@ -153,13 +172,15 @@ public class FlowStepJob implements Callable<Throwable>
     if( stop )
       return;
 
+    initPollingInterval();
+
     if( flowStep.isInfoEnabled() )
       flowStep.logInfo( "starting step: " + stepName );
 
     stepStats.markRunning();
 
-    jobClient = new JobClient( currentConf );
-    runningJob = jobClient.submitJob( currentConf );
+    jobClient = new JobClient( getCurrentConf() );
+    runningJob = jobClient.submitJob( getCurrentConf() );
 
     blockTillCompleteOrStopped();
 
